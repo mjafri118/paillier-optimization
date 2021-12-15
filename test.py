@@ -6,7 +6,7 @@ from time import sleep
 from math import sqrt
 import phePN as phePN
 import pheMP as pheMP
-# import phe as pheTN
+import mixcrypt as pheTN
 
 def generateTensors():
     tensors = []
@@ -34,50 +34,41 @@ class PaillierEncryption:
     def __init__(self, method):
         self.method = method
 
-        public_key, private_key = phePN.generate_paillier_keypair()
-        self.encryptPN, self.decryptPN = public_key.encrypt, private_key.decrypt
-
-        public_key, private_key = pheMP.generate_paillier_keypair()
-        self.encryptMP, self.decryptMP = public_key.encrypt, private_key.decrypt
-
-        # public_key, private_key = pheTN.generate_paillier_keypair()
-        # self.encryptTN, self.decryptTN = public_key.encrypt, private_key.decrypt
+        if self.method == "native-paillier":
+            public_key, private_key = phePN.generate_paillier_keypair()
+            self.encryptPN, self.decryptPN = public_key.encrypt, private_key.decrypt
+        if self.method == "multi-processing":
+            public_key, private_key = pheMP.generate_paillier_keypair()
+            self.encryptMP, self.decryptMP = public_key.encrypt, private_key.decrypt       
     
     # Input is a tensor, output is encrypted tensor/data
     def encrypt(self, tensor):
-        if self.method == "package-native": 
+        if self.method == "native-paillier": 
             self.encryptedData = self.encryptPN(tensor)
         if self.method == "multi-processing": 
-            self.decryptedData = self.encryptMP(tensor)
-        if self.method == "torch-native": 
-            self.decryptedData = self.encryptTN(tensor)
-        
+            self.encryptedData = self.encryptMP(tensor)
+        if self.method == "mixed-encryption": 
+            self.encryptedData = pheTN.encrypt(tensor) 
         return self.encryptedData
     
     # Input is encrypted tensor/data from encrypt() function. Output is 
     # expecting the exact same input tensor
     def decrypt(self, encryptedData):
-        if self.method == "package-native": 
+        if self.method == "native-paillier": 
             self.decryptedData = self.decryptPN(encryptedData)
         if self.method == "multi-processing": 
             self.decryptedData = self.decryptMP(encryptedData)
-        if self.method == "torch-native": 
-            self.decryptedData = self.decryptTN(encryptedData)
-        
+        if self.method == "mixed-encryption": 
+            self.decryptedData = pheTN.decrypt(encryptedData[0], encryptedData[1], encryptedData[2]) 
         return self.decryptedData
 
 ## Main execution of code
 
-METHODS = ['package-native', 'multi-processing', 'torch-native', 'abi-tbd']
-METHOD = METHODS[0] # SELECT METHOD HERE. 
-pheInstance = PaillierEncryption(METHOD)
-counter = Counter()
-
-encryptResults = []
-decryptResults = []
+METHODS = ['native-paillier', 'multi-processing', 'mixed-encryption']
+# METHOD = METHODS[2] # SELECT METHOD HERE if not using for loop
 
 # Clean way of storing the data. First column corresponds to index of the method type
-# i.e. 0 -> 'package-native'
+# i.e. 0 -> 'native-paillier'
 def logData(methodindex,tensorLength, encryptTime, decryptTime):
     with open('data.csv','a') as fd:
         fd.write(",".join([str(methodindex), str(tensorLength), str(encryptTime), str(decryptTime)]))
@@ -85,18 +76,25 @@ def logData(methodindex,tensorLength, encryptTime, decryptTime):
     print(f"Logged to CSV: {[methodindex, tensorLength, encryptTime, decryptTime]}")
     return
 
-for tensor in tensors: 
-    counter.reset()
-    counter.begin()
-    encryptedData = pheInstance.encrypt(tensor)
-    encryptTime = counter.end()
+for METHOD in METHODS: 
+    pheInstance = PaillierEncryption(METHOD)
+    counter = Counter()
 
-    counter.reset()
-    counter.begin()
-    decryptedData = pheInstance.decrypt(encryptedData)
-    decryptTime = counter.end()
+    encryptResults = []
+    decryptResults = []
 
-    # print(tensor == decryptedData) Check to see if encryption/decryption is working
+    for tensor in tensors: 
+        counter.reset()
+        counter.begin()
+        encryptedData = pheInstance.encrypt(tensor)
+        encryptTime = counter.end()
 
-    logData(METHODS.index(METHOD), len(tensor), encryptTime, decryptTime)
+        counter.reset()
+        counter.begin()
+        decryptedData = pheInstance.decrypt(encryptedData)
+        decryptTime = counter.end()
+
+        print(tensor == torch.abs(decryptedData)) # Check to see if encryption/decryption is working
+
+        logData(METHODS.index(METHOD), len(tensor), encryptTime, decryptTime)
 
