@@ -43,6 +43,7 @@ class PaillierEncryption:
         # public_key, private_key = pheTN.generate_paillier_keypair()
         # self.encryptTN, self.decryptTN = public_key.encrypt, private_key.decrypt
     
+    # Input is a tensor, output is encrypted tensor/data
     def encrypt(self, tensor):
         if self.method == "package-native": 
             self.encryptedData = self.encryptPN(tensor)
@@ -53,15 +54,19 @@ class PaillierEncryption:
         
         return self.encryptedData
     
-    def decrypt(self, tensor):
+    # Input is encrypted tensor/data from encrypt() function. Output is 
+    # expecting the exact same input tensor
+    def decrypt(self, encryptedData):
         if self.method == "package-native": 
-            self.decryptedData = self.decryptPN(tensor)
+            self.decryptedData = self.decryptPN(encryptedData)
         if self.method == "multi-processing": 
-            self.decryptedData = self.decryptMP(tensor)
+            self.decryptedData = self.decryptMP(encryptedData)
         if self.method == "torch-native": 
-            self.decryptedData = self.decryptTN(tensor)
+            self.decryptedData = self.decryptTN(encryptedData)
         
         return self.decryptedData
+
+## Main execution of code
 
 METHODS = ['package-native', 'multi-processing', 'torch-native', 'abi-tbd']
 METHOD = METHODS[0] # SELECT METHOD HERE. 
@@ -71,6 +76,8 @@ counter = Counter()
 encryptResults = []
 decryptResults = []
 
+# Clean way of storing the data. First column corresponds to index of the method type
+# i.e. 0 -> 'package-native'
 def logData(methodindex,tensorLength, encryptTime, decryptTime):
     with open('data.csv','a') as fd:
         fd.write(",".join([str(methodindex), str(tensorLength), str(encryptTime), str(decryptTime)]))
