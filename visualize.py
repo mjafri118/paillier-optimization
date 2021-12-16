@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt 
 import numpy as np
 
-METHODS = ['native-paillier', 'multi-processing', 'mixed-encryption']
+METHODS = ['native-paillier', 'mixed-encryption']
 
 data = np.loadtxt('data.csv', delimiter=",")
 

@@ -1,11 +1,8 @@
+from time import sleep, time
 import random
 import torch
-
-from hwcounter import Timer, count, count_end
-from time import sleep
 from math import sqrt
 import phePN as phePN
-import pheMP as pheMP
 import mixcrypt as pheTN
 
 def generateTensors():
@@ -16,18 +13,20 @@ def generateTensors():
         tensors.append(tensor)
     return tensors
 
-# torch.save(generateTensors(), 'tensors.pt') # uncomment to generate tensors and save to disk. 
+print(time())
+torch.save(generateTensors(), 'tensors.pt') # uncomment to generate tensors and save to disk. 
 tensors = torch.load('tensors.pt')
+print(tensors)
 
 class Counter: 
     def __init__(self):
         self.startCycle = 0
     def begin(self):
-        self.startCycle = count()
+        self.startCycle = time()
     def reset(self):
         self.startCycle = 0
     def end(self):
-        return count_end() - self.startCycle
+        return time() - self.startCycle
 
 
 class PaillierEncryption:
@@ -37,16 +36,11 @@ class PaillierEncryption:
         if self.method == "native-paillier":
             public_key, private_key = phePN.generate_paillier_keypair()
             self.encryptPN, self.decryptPN = public_key.encrypt, private_key.decrypt
-        if self.method == "multi-processing":
-            public_key, private_key = pheMP.generate_paillier_keypair()
-            self.encryptMP, self.decryptMP = public_key.encrypt, private_key.decrypt       
     
     # Input is a tensor, output is encrypted tensor/data
     def encrypt(self, tensor):
         if self.method == "native-paillier": 
             self.encryptedData = self.encryptPN(tensor)
-        if self.method == "multi-processing": 
-            self.encryptedData = self.encryptMP(tensor)
         if self.method == "mixed-encryption": 
             self.encryptedData = pheTN.encrypt(tensor) 
         return self.encryptedData
@@ -56,20 +50,18 @@ class PaillierEncryption:
     def decrypt(self, encryptedData):
         if self.method == "native-paillier": 
             self.decryptedData = self.decryptPN(encryptedData)
-        if self.method == "multi-processing": 
-            self.decryptedData = self.decryptMP(encryptedData)
         if self.method == "mixed-encryption": 
             self.decryptedData = pheTN.decrypt(encryptedData[0], encryptedData[1], encryptedData[2]) 
         return self.decryptedData
 
 ## Main execution of code
 
-METHODS = ['native-paillier', 'multi-processing', 'mixed-encryption']
-# METHOD = METHODS[2] # SELECT METHOD HERE if not using for loop
+METHODS = ['native-paillier', 'mixed-encryption']
+# METHOD = METHODS[2] # SELECT METHOD HERE if not using for-loop below.
 
 # Clean way of storing the data. First column corresponds to index of the method type
 # i.e. 0 -> 'native-paillier'
-def logData(methodindex,tensorLength, encryptTime, decryptTime):
+def logData(methodindex, tensorLength, encryptTime, decryptTime):
     with open('data.csv','a') as fd:
         fd.write(",".join([str(methodindex), str(tensorLength), str(encryptTime), str(decryptTime)]))
         fd.write("\n")  # Next line.
